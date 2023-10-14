@@ -14,10 +14,11 @@ primary_fqdn = None
 admin_username = None
 admin_password = None
 primary_ip = None
+function_url = None
 
 # Function to initialize global variables
 def initialize_globals():
-    global API_AUTH, API_HEADER, primary_fqdn, secondary_fqdn, admin_username, admin_password, primary_ip, secondary_ip
+    global API_AUTH, API_HEADER, primary_fqdn, secondary_fqdn, admin_username, admin_password, primary_ip, secondary_ip, function_url
     if API_AUTH is None:
         app_config_connection_string = os.environ['AppConfigConnectionString']  # Azure App Configuration connection string
         config_client = AzureAppConfigurationClient.from_connection_string(app_config_connection_string)
@@ -30,6 +31,8 @@ def initialize_globals():
         
         primary_fqdn = get_app_config_parameter(config_client, "primary_fqdn")
         primary_ip = get_app_config_parameter(config_client, "primary_ip")
+
+        function_url = get_app_config_parameter(config_client, "function_url")
 
 # Function to get an app config parameter
 def get_app_config_parameter(config_client, key):
@@ -70,9 +73,8 @@ def main(mytimer: func.TimerRequest) -> None:
             
             if node_status == "Connected" and "Standalone" in node_role and node_fqdn == primary_fqdn:
                 logging.info(f'ISE - {primary_ip} meets the conditions for setting as primary, active role {node_role}')
-                TriggerHttp = "https://ise-function-app-b9j4.azurewebsites.net/api/HttpTrigger1"
-                ExecuteFunction = requests.get(TriggerHttp)
-                logging.info(f'API response for {TriggerHttp} is {ExecuteFunction.text}')
+                ExecuteFunction = requests.get(function_url)
+                logging.info(f'API response for {function_url} is {ExecuteFunction.text}')
 
             else:
                 logging.info(f'ISE - {primary_ip} does not meet the conditions for executing the HTTP Trigger function')
