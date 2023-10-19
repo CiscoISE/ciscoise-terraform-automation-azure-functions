@@ -78,6 +78,19 @@ def main(mytimer: func.TimerRequest) -> None:
 
             else:
                 logging.info(f'ISE - {primary_ip} does not meet the conditions for executing the HTTP Trigger function')
+                if resp.status_code == 200:
+                    json_resp = json.loads(resp.content.decode("utf-8"))
+                    connected_node = 0
+                    for node in json_resp["response"]:
+                        if node['nodeStatus'] == "Connected":
+                            logging.info("SyncStatus success for: '%s'", node["hostname"])
+                            connected_node += 1
+                        elif node['nodeStatus'] == "RegistrationFailed":
+                            logging.info("Sync failed for: '%s'", node["hostname"])
+                        else:
+                            logging.info("Sync In Progress")
+                        if connected_node == len(json_resp["response"]):
+                            logging.info("SYNC_COMPLETED")
         else:
             logging.info(f'ISE - {primary_ip} is not reachable or returned a non-200 status code')
 
