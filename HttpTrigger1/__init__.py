@@ -16,12 +16,13 @@ admin_username = None
 admin_password = None
 primary_ip = None
 secondary_ip = None
-psn_nodes_list = []
+psn_nodes_fqdn = []
+psn_nodes_service = []
 
 
 # Function to initialize global variables
 def initialize_globals():
-    global API_AUTH, API_HEADER, primary_fqdn, secondary_fqdn, admin_username, admin_password, primary_ip, secondary_ip, psn_nodes_list
+    global API_AUTH, API_HEADER, primary_fqdn, secondary_fqdn, admin_username, admin_password, primary_ip, secondary_ip, psn_nodes_fqdn, psn_nodes_service
     if API_AUTH is None:
         app_config_connection_string = os.environ[
             'AppConfigConnectionString']  # Azure App Configuration connection string
@@ -40,9 +41,11 @@ def initialize_globals():
         secondary_ip = get_app_config_parameter(config_client, "secondary_ip")
 
 # Fetching PSN nodes using label psn
-        label = "psn"
+        label = "psn_fqdn"
+        labels2 = "psn_services"
         all_settings = list(config_client.list_configuration_settings())
-        psn_nodes_list = [setting.value for setting in all_settings if setting.label and label in setting.label]
+        psn_nodes_fqdn = [setting.value for setting in all_settings if setting.label and label in setting.label]
+        psn_nodes_service = [setting.value for setting in all_settings if setting.label and labels2 in setting.label]
 
 
 # Function to get an app config parameter
@@ -96,10 +99,10 @@ def set_node_as_secondary(primary_ip):
 
 # Function to set PSN nodes
 
-def register_psn_node(psn_node_fqdn):
+def register_psn_node(psn_node_fqdn, service_enabled):
     initialize_globals()  # Ensure that the globals are initialized
 
-    service_enabled = ["Session", "Profiler"]
+    #service_enabled = ["Session", "Profiler"]
     url = f'https://{primary_ip}/api/v1/deployment/node'
 
     data = {
@@ -198,8 +201,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         # Register PSN nodes to the Primary Node
         if primary_node_ready or primary_node_admin:
-            for psn_node_fqdn in psn_nodes_list:
-                register_psn_response = register_psn_node(psn_node_fqdn)
+            for (psn_node_fqdn, service_enabled) in zip(psn_nodes_fqdn, psn_nodes_service):
+                psn_services_list = [service.strip() for service in service_enabled.split(",")]
+                register_psn_response = register_psn_node(psn_node_fqdn, psn_services_list)
                 logging.info(' Register Node as PSN response: %s', register_psn_response)
 
 
