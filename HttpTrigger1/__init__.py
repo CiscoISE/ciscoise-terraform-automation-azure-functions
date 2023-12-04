@@ -141,7 +141,7 @@ def register_psn_node(psn_node_fqdn, service_enabled, roles_enabled):
         "fqdn": psn_node_fqdn,
         "userName": API_AUTH[0],  # Use the same username as the primary node
         "password": API_AUTH[1],  # Use the same password as the primary node
-        "services": service_enabled
+        "services": service_enabled,
         "roles": roles_enabled,
     }
 
