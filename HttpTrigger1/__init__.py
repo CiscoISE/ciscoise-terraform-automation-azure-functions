@@ -16,16 +16,17 @@ admin_username = None
 admin_password = None
 primary_ip = None
 secondary_ip = None
-psn_nodes_fqdn = []
-psn_nodes_service = []
-
+psn_fqdn = []
+pan_services = []
+psn_services = []
+secondary_roles = []
+psn_roles = []
 
 # Function to initialize global variables
 def initialize_globals():
-    global API_AUTH, API_HEADER, primary_fqdn, secondary_fqdn, admin_username, admin_password, primary_ip, secondary_ip, psn_nodes_fqdn, psn_nodes_service
+    global API_AUTH, API_HEADER, primary_fqdn, secondary_fqdn, admin_username, admin_password, primary_ip, secondary_ip, psn_fqdn, pan_services, psn_services, secondary_roles, psn_roles
     if API_AUTH is None:
-        app_config_connection_string = os.environ[
-            'AppConfigConnectionString']  # Azure App Configuration connection string
+        app_config_connection_string = os.environ['AppConfigConnectionString']  # Azure App Configuration connection string
         config_client = AzureAppConfigurationClient.from_connection_string(app_config_connection_string)
 
         admin_username = get_app_config_parameter(config_client, "admin_username")
@@ -40,12 +41,19 @@ def initialize_globals():
         primary_ip = get_app_config_parameter(config_client, "primary_ip")
         secondary_ip = get_app_config_parameter(config_client, "secondary_ip")
 
-# Fetching PSN nodes using label psn
+# Fetching App Configuration parameter required to setup the ISE Secondary and PSN nodes using labels
         label = "psn_fqdn"
-        labels2 = "psn_services"
+        label2 = "pan_roles"
+        label3 = "psn_roles"
+        label4 = "pan_services"
+        label5 = "psn_services"
+
         all_settings = list(config_client.list_configuration_settings())
-        psn_nodes_fqdn = [setting.value for setting in all_settings if setting.label and label in setting.label]
-        psn_nodes_service = [setting.value for setting in all_settings if setting.label and labels2 in setting.label]
+        psn_fqdn = [setting.value for setting in all_settings if setting.label and label in setting.label]
+        secondary_roles = [setting.value for setting in all_settings if setting.label and label2 in setting.label]
+        psn_roles = [setting.value for setting in all_settings if setting.label and label3 in setting.label]
+        pan_services = [setting.value for setting in all_settings if setting.label and label4 in setting.label]
+        psn_services = [setting.value for setting in all_settings if setting.label and label5 in setting.label]
 
 
 # Function to get an app config parameter
@@ -73,11 +81,11 @@ def set_node_as_primary(primary_ip):
 
 
 # Function to set secondary node
-def set_node_as_secondary(primary_ip):
+def set_node_as_secondary(roles_enabled, service_enabled):
     initialize_globals()  # Ensure that the globals are initialized
 
-    roles_enabled = ["SecondaryAdmin", "SecondaryMonitoring"]
-    service_enabled = ["Session", "Profiler", "pxGrid"]
+    # roles_enabled = ["SecondaryAdmin", "SecondaryMonitoring"]
+    # service_enabled = ["Session", "Profiler", "pxGrid"]
 
     url = f'https://{primary_ip}/api/v1/deployment/node'
     data = {
@@ -97,9 +105,32 @@ def set_node_as_secondary(primary_ip):
         return f"Failed to set the node as secondary. API response: {resp.content}"
 
 
+
+#####################################################################
+# Handling PSN empty roles values after retrieving from App Config
+#####################################################################
+
+# Initializing new list for the roles and converting the blank strings into blank list
+psn_role_list = [[] if x == '' else x for x in psn_roles]
+
+# Initialize an empty output list for PSN roles
+psn_roles_list_updated = []
+
+# Iterate over the input list
+for item in psn_role_list:
+    # Check if the item is a string
+    if isinstance(item, str):
+        # Convert the string into a list with one element and append it to the output list
+        psn_roles_list_updated.append([item])
+    else:
+        # Convert the item into a list and append it to the output list
+        psn_roles_list_updated.append(list(item))
+
+
+
 # Function to set PSN nodes
 
-def register_psn_node(psn_node_fqdn, service_enabled):
+def register_psn_node(psn_node_fqdn, service_enabled, roles_enabled):
     initialize_globals()  # Ensure that the globals are initialized
 
     #service_enabled = ["Session", "Profiler"]
@@ -111,6 +142,7 @@ def register_psn_node(psn_node_fqdn, service_enabled):
         "userName": API_AUTH[0],  # Use the same username as the primary node
         "password": API_AUTH[1],  # Use the same password as the primary node
         "services": service_enabled
+        "roles": roles_enabled,
     }
 
     resp = requests.post(url, headers=API_HEADER, auth=API_AUTH, data=json.dumps(data), verify=False)
@@ -124,6 +156,11 @@ def register_psn_node(psn_node_fqdn, service_enabled):
             "task_status": "Done"
         }
 
+
+
+###########################################################################
+# Azure Function main starts from here
+###########################################################################
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
@@ -196,14 +233,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         if primary_node_ready or primary_node_admin and secondary_node_ready:
             #  if (node_status == "Connected" and "PrimaryAdmin" in node_role and node_fqdn == primary_fqdn) and secondary_node_ready:
-            set_secondary_response = set_node_as_secondary(primary_ip)
-            logging.info('Set Node as Secondary Response: ' + set_secondary_response)
+            for (service_enabled, span_role) in zip(pan_services[1:], secondary_roles[1:]):
+                span_services_list = [service.strip() for service in service_enabled.split(", ")]
+                span_roles = span_role.split(', ')
+                set_secondary_response = set_node_as_secondary(span_roles, span_services_list)
+                logging.info('Set Node as Secondary Response: ' + set_secondary_response)
 
         # Register PSN nodes to the Primary Node
         if primary_node_ready or primary_node_admin:
-            for (psn_node_fqdn, service_enabled) in zip(psn_nodes_fqdn, psn_nodes_service):
+            for (psn_node_fqdn, service_enabled, roles_enabled) in zip(psn_fqdn, psn_services, psn_roles_list_updated):
                 psn_services_list = [service.strip() for service in service_enabled.split(",")]
-                register_psn_response = register_psn_node(psn_node_fqdn, psn_services_list)
+                register_psn_response = register_psn_node(psn_node_fqdn, psn_services_list, roles_enabled)
                 logging.info(' Register Node as PSN response: %s', register_psn_response)
 
 
