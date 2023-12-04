@@ -241,6 +241,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         # Register PSN nodes to the Primary Node
         if primary_node_ready or primary_node_admin:
+                logging.info('Staring PSN registration')
             for (psn_node_fqdn, service_enabled, roles_enabled) in zip(psn_fqdn, psn_services, psn_roles_list_updated):
                 psn_services_list = [service.strip() for service in service_enabled.split(",")]
                 register_psn_response = register_psn_node(psn_node_fqdn, psn_services_list, roles_enabled)
