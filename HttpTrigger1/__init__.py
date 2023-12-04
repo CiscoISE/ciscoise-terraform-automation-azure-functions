@@ -22,6 +22,7 @@ psn_services = []
 secondary_roles = []
 psn_roles = []
 
+
 # Function to initialize global variables
 def initialize_globals():
     global API_AUTH, API_HEADER, primary_fqdn, secondary_fqdn, admin_username, admin_password, primary_ip, secondary_ip, psn_fqdn, pan_services, psn_services, secondary_roles, psn_roles
@@ -103,29 +104,6 @@ def set_node_as_secondary(roles_enabled, service_enabled):
         return f"Node set as secondary. API response: {resp.content}"
     else:
         return f"Failed to set the node as secondary. API response: {resp.content}"
-
-
-
-#####################################################################
-# Handling PSN empty roles values after retrieving from App Config
-#####################################################################
-
-# Initializing new list for the roles and converting the blank strings into blank list
-psn_role_list = [[] if x == '' else x for x in psn_roles]
-
-# Initialize an empty output list for PSN roles
-psn_roles_list_updated = []
-
-# Iterate over the input list
-for item in psn_role_list:
-    # Check if the item is a string
-    if isinstance(item, str):
-        # Convert the string into a list with one element and append it to the output list
-        psn_roles_list_updated.append([item])
-    else:
-        # Convert the item into a list and append it to the output list
-        psn_roles_list_updated.append(list(item))
-
 
 
 # Function to set PSN nodes
@@ -242,6 +220,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         # Register PSN nodes to the Primary Node
         if primary_node_ready or primary_node_admin:
             logging.info('Staring PSN registration')
+                # Initializing new list for the roles and converting the blank strings into blank list
+            psn_role_list = [[] if x == '' else x for x in psn_roles]
+
+            # Initialize an empty output list for PSN roles
+            psn_roles_list_updated = []
+
+            # Iterate over the input list
+            for item in psn_role_list:
+                # Check if the item is a string
+                if isinstance(item, str):
+                    # Convert the string into a list with one element and append it to the output list
+                    psn_roles_list_updated.append([item])
+                else:
+                    # Convert the item into a list and append it to the output list
+                    psn_roles_list_updated.append(list(item))
+                    
             for (psn_node_fqdn, service_enabled, roles_enabled) in zip(psn_fqdn, psn_services, psn_roles_list_updated):
                 psn_services_list = [service.strip() for service in service_enabled.split(",")]
                 register_psn_response = register_psn_node(psn_node_fqdn, psn_services_list, roles_enabled)
