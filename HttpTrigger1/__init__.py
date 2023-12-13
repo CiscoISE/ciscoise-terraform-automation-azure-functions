@@ -111,6 +111,9 @@ def set_node_as_secondary(roles_enabled, service_enabled):
 def register_psn_node(psn_node_fqdn, service_enabled, roles_enabled):
     initialize_globals()  # Ensure that the globals are initialized
 
+    if any(item in roles_enabled for item in ['PrimaryDedicatedMonitoring', 'SecondaryDedicatedMonitoring']):
+        service_enabled = []
+
     #service_enabled = ["Session", "Profiler"]
     url = f'https://{primary_ip}/api/v1/deployment/node'
 
