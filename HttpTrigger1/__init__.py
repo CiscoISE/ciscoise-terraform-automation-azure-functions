@@ -222,7 +222,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         # Register PSN nodes to the Primary Node
         if primary_node_ready or primary_node_admin:
-            logging.info('Staring PSN registration')
+            logging.info('Starting PSN registration')
                 # Initializing new list for the roles and converting the blank strings into blank list
             psn_role_list = [[] if x == '' else x for x in psn_roles]
 
