@@ -216,6 +216,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             #  if (node_status == "Connected" and "PrimaryAdmin" in node_role and node_fqdn == primary_fqdn) and secondary_node_ready:
             for (service_enabled, span_role) in zip(pan_services[1:], secondary_roles[1:]):
                 span_services_list = [service.strip() for service in service_enabled.split(", ")]
+                if span_services_list == ['']:
+                    span_services_list = []
                 span_roles = span_role.split(', ')
                 set_secondary_response = set_node_as_secondary(span_roles, span_services_list)
                 logging.info('Set Node as Secondary Response: ' + set_secondary_response)
